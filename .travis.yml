@@ -3,4 +3,9 @@ jdk:
 - openjdk7
 script:
 - ./bundle.sh $TRAVIS_BUILD_NUMBER
-- ./publish.sh $TRAVIS_BUILD_NUMBER
+deploy:
+  provider: s3
+  access_key_id: AKIAJPII7N6DVIOXPQAQ
+  secret_access_key:
+    secure: V7iO7YB0dE8bnpRpJ8JJmc96S1Kg05cWXILb2wm67gUOU4adFTWKtwmcPj9enpuUprm8fBwuiDhGUGlouZA6vWG3pp9+mxsxkzeMLH/DwY2bZENYOUmtMzu745lcuC9q3DuqoenkkJ6FPmZbaLEWwm04ECmXy7EaMpzC/l9XJMg=
+  bucket: "omny-ecs-service-launcher-releases"
