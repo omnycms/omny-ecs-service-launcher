@@ -10,3 +10,4 @@ deploy:
     secure: V7iO7YB0dE8bnpRpJ8JJmc96S1Kg05cWXILb2wm67gUOU4adFTWKtwmcPj9enpuUprm8fBwuiDhGUGlouZA6vWG3pp9+mxsxkzeMLH/DwY2bZENYOUmtMzu745lcuC9q3DuqoenkkJ6FPmZbaLEWwm04ECmXy7EaMpzC/l9XJMg=
   bucket: "omny-ecs-service-launcher-releases"
   local_dir: output
+  skip_cleanup: true
