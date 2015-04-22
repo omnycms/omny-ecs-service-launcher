@@ -104,20 +104,20 @@ public class EcsServiceLauncher {
                                 .withService(createService.getService().getServiceName())
                         );
                         sqs.deleteMessage(queue, message.getReceiptHandle());
-                        return;
+                        
+                    } else {
+                        //update service reference
+                        if (db != null) {
+                            HashMap<String, AttributeValue> keys = new HashMap<>();
+                            keys.put(DYNAMO_HASH_KEY_NAME, new AttributeValue("services"));
+                            keys.put(DYNAMO_RANGE_KEY_NAME, new AttributeValue(request.getServiceName() + "/current"));
+                            Map<String, Integer> value = new HashMap<>();
+                            value.put("version", taskDefinitionRevision);
+                            keys.put("value", new AttributeValue(gson.toJson(value)));
+                            dynamo.putItem(db, keys);
+                        }
+                        sqs.deleteMessage(queue, message.getReceiptHandle());
                     }
-
-                    //update service reference
-                    if (db != null) {
-                        HashMap<String, AttributeValue> keys = new HashMap<>();
-                        keys.put(DYNAMO_HASH_KEY_NAME, new AttributeValue("services"));
-                        keys.put(DYNAMO_RANGE_KEY_NAME, new AttributeValue(request.getServiceName() + "/current"));
-                        Map<String, Integer> value = new HashMap<>();
-                        value.put("version", taskDefinitionRevision);
-                        keys.put("value", new AttributeValue(gson.toJson(value)));
-                        dynamo.putItem(db, keys);
-                    }
-                    sqs.deleteMessage(queue, message.getReceiptHandle());
                 }
             } catch (Exception e) {
                 e.printStackTrace();
