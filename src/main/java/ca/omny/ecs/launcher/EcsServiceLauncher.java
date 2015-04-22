@@ -12,6 +12,7 @@ import com.amazonaws.services.ecs.model.DescribeServicesResult;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.Service;
+import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.sqs.AmazonSQSClient;
@@ -76,12 +77,14 @@ public class EcsServiceLauncher {
                     );
                     int taskDefinitionRevision = registerTaskDefinition.getTaskDefinition().getRevision();
 
+                    String serviceAndTaskRevision = request.getServiceName() + "-" + taskDefinitionRevision;
                     //create ECS service
                     CreateServiceResult createService = ecs.createService(
                             new CreateServiceRequest()
                             .withCluster(cluster)
                             .withDesiredCount(request.getNumToRun())
-                            .withServiceName(serviceAndBuildNumber)
+                            .withServiceName(serviceAndTaskRevision)
+                            .withTaskDefinition(registerTaskDefinition.getTaskDefinition().getTaskDefinitionArn())
                     );
 
                     //wait for running
@@ -89,11 +92,17 @@ public class EcsServiceLauncher {
                     //health check
                     boolean healthCheck = healthCheck(cluster, ecsTaskTracker, createService.getService(), family, taskDefinitionRevision);
                     if (!healthCheck) {
+                        Logger.getLogger(EcsServiceLauncher.class.getName()).log(Level.SEVERE, "health check failed for " + request.getServiceName());
+                        
+                        ecs.updateService(new UpdateServiceRequest()
+                                .withCluster(cluster)
+                                .withDesiredCount(0)
+                                .withService(createService.getService().getServiceArn())
+                        );
                         ecs.deleteService(new DeleteServiceRequest()
                                 .withCluster(cluster)
                                 .withService(createService.getService().getServiceName())
                         );
-                        Logger.getLogger(EcsServiceLauncher.class.getName()).log(Level.SEVERE, "health check failed for " + request.getServiceName());
                         sqs.deleteMessage(queue, message.getReceiptHandle());
                         return;
                     }
