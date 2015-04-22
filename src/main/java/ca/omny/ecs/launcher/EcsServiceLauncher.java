@@ -90,7 +90,7 @@ public class EcsServiceLauncher {
                     //wait for running
                     createService.getService().getRunningCount();
                     //health check
-                    boolean healthCheck = healthCheck(cluster, ecsTaskTracker, createService.getService(), family, taskDefinitionRevision);
+                    boolean healthCheck = healthCheck(request.getHealthCheckPath(), ecsTaskTracker, createService.getService(), family, taskDefinitionRevision);
                     if (!healthCheck) {
                         Logger.getLogger(EcsServiceLauncher.class.getName()).log(Level.SEVERE, "health check failed for " + request.getServiceName());
                         
