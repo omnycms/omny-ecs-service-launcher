@@ -154,7 +154,7 @@ public class EcsServiceLauncher {
                             String[] split = arn.split(":");
                             String serviceName = split[split.length - 1];
                             if (!arn.equals(createService.getService().getServiceArn())
-                                    && serviceName.startsWith(request.getServiceName() + "-")) {
+                                    && serviceName.startsWith("service/"+request.getServiceName() + "-")) {
                                 ecs.deleteService(new DeleteServiceRequest()
                                         .withCluster(cluster)
                                         .withService(arn)
