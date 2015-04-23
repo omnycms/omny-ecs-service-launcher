@@ -57,7 +57,14 @@ public class EcsServiceLauncher {
                 ReceiveMessageResult receiveMessage = sqs.receiveMessage(queue);
                 for (Message message : receiveMessage.getMessages()) {
                     //register task
-                    ServiceUpdateRequest request = gson.fromJson(message.getBody(), ServiceUpdateRequest.class);
+                    String body = message.getBody();
+                    Map m = gson.fromJson(message.getBody(), Map.class);
+                    ServiceUpdateRequest request;
+                    if(m.containsKey("Message")) {
+                        request = gson.fromJson(m.get("Message").toString(), ServiceUpdateRequest.class);
+                    } else {
+                        request = gson.fromJson(message.getBody(), ServiceUpdateRequest.class);
+                    }
                     S3Object taskDefinitionObject = s3.getObject(bucket, request.getSite() + "/" + request.getServiceName() + "/container-definition.json");
                     String taskDefinitionString = IOUtils.toString(taskDefinitionObject.getObjectContent());
                     StringWriter writer = new StringWriter();
