@@ -119,7 +119,7 @@ public class EcsServiceLauncher {
                         if (request.getSnsArn() != null) {
                             sns.publish(
                                     new PublishRequest()
-                                    .withSubject("Failed deployment of "+request.getServiceName())
+                                    .withSubject("Failed deployment of "+serviceAndTaskRevision)
                                     .withMessage("Failed to deploy version "+request.getBuildNumber()+" of "+request.getServiceName())
                                     .withTopicArn(request.getSnsArn())
                             );
@@ -140,7 +140,7 @@ public class EcsServiceLauncher {
                         if (request.getSnsArn() != null) {
                             sns.publish(
                                     new PublishRequest()
-                                    .withSubject("Successful deployment of "+request.getServiceName())
+                                    .withSubject("Successful deployment of "+serviceAndTaskRevision)
                                     .withMessage("Successfully deployed version "+request.getBuildNumber()+" of "+request.getServiceName())
                                     .withTopicArn(request.getSnsArn())
                             );
