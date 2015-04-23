@@ -7,6 +7,7 @@ public class ServiceUpdateRequest {
     boolean replaceLastIfExists;
     String healthCheckPath;
     int numToRun;
+    String snsArn;
 
     public String getSite() {
         return site;
@@ -54,5 +55,13 @@ public class ServiceUpdateRequest {
 
     public void setNumToRun(int numToRun) {
         this.numToRun = numToRun;
+    }
+
+    public String getSnsArn() {
+        return snsArn;
+    }
+
+    public void setSnsArn(String snsArn) {
+        this.snsArn = snsArn;
     }
 }

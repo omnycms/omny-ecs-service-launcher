@@ -9,12 +9,16 @@ import com.amazonaws.services.ecs.model.CreateServiceResult;
 import com.amazonaws.services.ecs.model.DeleteServiceRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesResult;
+import com.amazonaws.services.ecs.model.ListServicesRequest;
+import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.model.PublishRequest;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageResult;
@@ -39,6 +43,7 @@ public class EcsServiceLauncher {
 
     AmazonSQSClient sqs = new AmazonSQSClient();
     AmazonS3Client s3 = new AmazonS3Client();
+    AmazonSNSClient sns = new AmazonSNSClient();
     AmazonDynamoDBClient dynamo = new AmazonDynamoDBClient();
     AmazonECSClient ecs = new AmazonECSClient();
     int WAIT_TIME = 20000;
@@ -60,7 +65,7 @@ public class EcsServiceLauncher {
                     String body = message.getBody();
                     Map m = gson.fromJson(message.getBody(), Map.class);
                     ServiceUpdateRequest request;
-                    if(m.containsKey("Message")) {
+                    if (m.containsKey("Message")) {
                         request = gson.fromJson(m.get("Message").toString(), ServiceUpdateRequest.class);
                     } else {
                         request = gson.fromJson(message.getBody(), ServiceUpdateRequest.class);
@@ -111,7 +116,14 @@ public class EcsServiceLauncher {
                                 .withService(createService.getService().getServiceName())
                         );
                         sqs.deleteMessage(queue, message.getReceiptHandle());
-                        
+                        if (request.getSnsArn() != null) {
+                            sns.publish(
+                                    new PublishRequest()
+                                    .withSubject("Failed deployment of "+request.getServiceName())
+                                    .withMessage("Failed to deploy version "+request.getBuildNumber()+" of "+request.getServiceName())
+                                    .withTopicArn(request.getSnsArn())
+                            );
+                        }
                     } else {
                         //update service reference
                         if (db != null) {
@@ -119,12 +131,37 @@ public class EcsServiceLauncher {
                             keys.put(DYNAMO_HASH_KEY_NAME, new AttributeValue("services"));
                             keys.put(DYNAMO_RANGE_KEY_NAME, new AttributeValue(request.getServiceName() + "/current"));
                             Map<String, String> value = new HashMap<>();
-                            value.put("version", ""+taskDefinitionRevision);
+                            value.put("version", "" + taskDefinitionRevision);
                             keys.put("value", new AttributeValue(gson.toJson(value)));
                             dynamo.putItem(db, keys);
                         }
                         sqs.deleteMessage(queue, message.getReceiptHandle());
                         Logger.getLogger(EcsServiceLauncher.class.getName()).log(Level.INFO, "successfully deployed update to " + request.getServiceName());
+                        if (request.getSnsArn() != null) {
+                            sns.publish(
+                                    new PublishRequest()
+                                    .withSubject("Successful deployment of "+request.getServiceName())
+                                    .withMessage("Successfully deployed version "+request.getBuildNumber()+" of "+request.getServiceName())
+                                    .withTopicArn(request.getSnsArn())
+                            );
+                        }
+                        Thread.sleep(WAIT_TIME);
+                        ListServicesResult listServices = ecs.listServices(
+                                new ListServicesRequest()
+                                .withCluster(cluster)
+                        );
+                        for (String arn : listServices.getServiceArns()) {
+                            String[] split = arn.split(":");
+                            String serviceName = split[split.length - 1];
+                            if (!arn.equals(createService.getService().getServiceArn())
+                                    && serviceName.startsWith(request.getServiceName() + "-")) {
+                                ecs.deleteService(new DeleteServiceRequest()
+                                        .withCluster(cluster)
+                                        .withService(arn)
+                                );
+                                Logger.getLogger(EcsServiceLauncher.class.getName()).log(Level.INFO, "successfully deleted old service " + arn);
+                            }
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -146,7 +183,7 @@ public class EcsServiceLauncher {
                 Map<String, List<Integer>> hostPortMapping = ecsTaskTracker.getHostPortMapping(family, "" + revision);
                 return checkHealth(healthCheckUrl, hostPortMapping, RETRIES);
             }
-            if (i < RETRIES-1) {
+            if (i < RETRIES - 1) {
                 try {
                     Thread.sleep(WAIT_TIME);
                 } catch (InterruptedException ex) {
